@@ -13,7 +13,7 @@
 
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'SF Pro Display', Roboto, sans-serif;
-            background: #f5f5f7;
+            background: #f3f4f2;
             height: 100vh;
             display: flex;
             justify-content: center;
@@ -24,9 +24,9 @@
             width: 100%;
             max-width: 800px;
             height: 85vh;
-            background: white;
+            background: #ffffff;
             border-radius: 8px;
-            box-shadow: 0 4px 24px rgba(0, 0, 0, 0.08);
+            box-shadow: 0 6px 28px rgba(0, 0, 0, 0.08);
             display: flex;
             flex-direction: column;
             overflow: hidden;
@@ -34,13 +34,13 @@
 
         /* 头部 */
         .header {
-            background: white;
+            background: #ffffff;
             color: #1d1d1f;
             padding: 16px 20px;
             display: flex;
             justify-content: space-between;
             align-items: center;
-            border-bottom: 1px solid #e5e5e7;
+            border-bottom: 1px solid #e3e5e1;
         }
 
         .header h1 {
@@ -49,7 +49,7 @@
             display: flex;
             align-items: center;
             gap: 8px;
-            color: #1d1d1f;
+            color: #1f2933;
         }
 
         .header .status {
@@ -57,19 +57,19 @@
             align-items: center;
             gap: 6px;
             font-size: 13px;
-            color: #86868b;
+            color: #6b6f6a;
         }
 
         .status-indicator {
             width: 6px;
             height: 6px;
             border-radius: 50%;
-            background: #ff3b30;
+            background: #c2413b;
             transition: background 0.3s ease;
         }
 
         .status-indicator.connected {
-            background: #34c759;
+            background: #2f7a5a;
         }
 
         /* 聊天区域 */
@@ -106,14 +106,15 @@
             justify-content: center;
             font-size: 16px;
             flex-shrink: 0;
+            color: #ffffff;
         }
 
         .message.assistant .message-avatar {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: #5f6f62;
         }
 
         .message.user .message-avatar {
-            background: #007aff;
+            background: #2f6f62;
         }
 
         .message-content {
@@ -126,32 +127,32 @@
         }
 
         .message.assistant .message-content {
-            background: #f5f5f7;
-            color: #1d1d1f;
-            border: 1px solid #e5e5e7;
+            background: #f1f3f0;
+            color: #1f2933;
+            border: 1px solid #e1e4df;
         }
 
         .message.user .message-content {
-            background: #007aff;
-            color: white;
+            background: #2f6f62;
+            color: #ffffff;
         }
 
         .message-time {
             font-size: 11px;
-            color: #86868b;
+            color: #6b6f6a;
             margin-top: 4px;
         }
 
         .message.user .message-time {
-            color: rgba(255, 255, 255, 0.6);
+            color: rgba(255, 255, 255, 0.7);
             text-align: right;
         }
 
         /* 输入区域 */
         .input-area {
             padding: 12px 16px 16px 16px;
-            background: white;
-            border-top: 1px solid #e5e5e7;
+            background: #ffffff;
+            border-top: 1px solid #e3e5e1;
             display: flex;
             gap: 8px;
             align-items: flex-end;
@@ -160,7 +161,7 @@
         .input-area textarea {
             flex: 1;
             padding: 10px 12px;
-            border: 1px solid #d2d2d7;
+            border: 1px solid #cfd4cc;
             border-radius: 6px;
             resize: none;
             font-family: inherit;
@@ -169,17 +170,19 @@
             transition: all 0.2s;
             height: 40px;
             max-height: 120px;
+            background: #fbfcfa;
+            color: #1f2933;
         }
 
         .input-area textarea:focus {
-            border-color: #007aff;
-            box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.1);
+            border-color: #2f6f62;
+            box-shadow: 0 0 0 3px rgba(47, 111, 98, 0.14);
         }
 
         .send-button {
             padding: 10px 20px;
-            background: #007aff;
-            color: white;
+            background: #2f6f62;
+            color: #ffffff;
             border: none;
             border-radius: 6px;
             font-size: 14px;
@@ -190,7 +193,7 @@
         }
 
         .send-button:hover:not(:disabled) {
-            background: #0051d5;
+            background: #285d52;
         }
 
         .send-button:active:not(:disabled) {
@@ -205,8 +208,8 @@
         /* 工具栏 */
         .toolbar {
             padding: 8px 16px;
-            background: #f5f5f7;
-            border-top: 1px solid #e5e5e7;
+            background: #f1f3f0;
+            border-top: 1px solid #e3e5e1;
             display: flex;
             gap: 6px;
             align-items: center;
@@ -214,18 +217,18 @@
 
         .toolbar button {
             padding: 6px 12px;
-            background: white;
-            border: 1px solid #d2d2d7;
+            background: #ffffff;
+            border: 1px solid #cfd4cc;
             border-radius: 5px;
             font-size: 12px;
-            color: #1d1d1f;
+            color: #1f2933;
             cursor: pointer;
             transition: all 0.2s;
         }
 
         .toolbar button:hover {
-            background: #f5f5f7;
-            border-color: #007aff;
+            background: #eef1ed;
+            border-color: #2f6f62;
         }
 
         /* 打字动画 */
@@ -239,7 +242,7 @@
             width: 6px;
             height: 6px;
             border-radius: 50%;
-            background: #86868b;
+            background: #8a8f88;
             animation: typing 1.2s infinite;
         }
 
@@ -297,8 +300,8 @@
         }
 
         .message-content pre {
-            background: #1d1d1f;
-            color: #f5f5f7;
+            background: #1f2a24;
+            color: #f1f4f1;
             padding: 10px;
             border-radius: 5px;
             overflow-x: auto;
@@ -309,7 +312,7 @@
         .message-content pre code {
             background: none;
             padding: 0;
-            color: #f5f5f7;
+            color: #f1f4f1;
         }
 
         /* 滚动条美化 */
@@ -322,12 +325,12 @@
         }
 
         .messages::-webkit-scrollbar-thumb {
-            background: #d2d2d7;
+            background: #cfd4cc;
             border-radius: 3px;
         }
 
         .messages::-webkit-scrollbar-thumb:hover {
-            background: #8e8e93;
+            background: #9aa09a;
         }
     </style>
 </head>
