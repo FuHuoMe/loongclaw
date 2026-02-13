@@ -262,7 +262,6 @@ class LLMAdapter {
 
     if (tools && tools.length > 0) {
       requestBody.tools = this._formatTools(tools);
-      requestBody.tool_choice = 'auto';
     }
 
     return requestBody;
