@@ -47,23 +47,35 @@ loongclaw/
 │   ├── llm.js              # LLM 适配器
 │   ├── tools.js            # 工具管理器
 │   ├── memory.js           # 记忆系统
-│   └── session.js          # 会话管理
-├── tools/                   # 工具集
-│   ├── filesystem.js       # 文件操作
-│   ├── web.js              # Web 访问
-│   └── shell.js            # Shell 执行
+│   └── server.js           # Web 服务器
 ├── ui/                      # 用户界面
 │   └── webchat/            # WebChat 界面
-├── config/                  # 配置文件
-│   ├── agent.json          # Agent 配置
-│   └── tools.json          # 工具配置
 ├── docs/                    # 文档
 │   ├── ARCHITECTURE.md     # 架构说明
 │   ├── API.md              # API 文档
-│   └── TUTORIAL.md         # 教程
-└── tests/                   # 测试
-    ├── unit/               # 单元测试
-    └── integration/        # 集成测试
+│   ├── GETTING-STARTED.md  # 快速上手
+│   ├── DEPLOY-CLOUDFLARE.md # 部署说明
+│   ├── WEB-TEST-REPORT.md  # Web 测试报告
+│   └── SUMMARY-2026-02-13.md # 开发总结
+├── index.js                # 主入口
+├── start.sh                # 启动脚本
+├── .env.example            # 环境变量示例
+└── package.json            # 依赖与脚本
+```
+
+**规划结构（未来实现）**:
+```
+loongclaw/
+├── core/
+│   ├── session.js          # 会话管理
+├── tools/                  # 工具集
+│   ├── filesystem.js       # 文件操作
+│   ├── web.js              # Web 访问
+│   └── shell.js            # Shell 执行
+
+├── config/                  # 配置文件
+│   ├── agent.json          # Agent 配置
+│   └── tools.json          # 工具配置
 ```
 
 ---
@@ -106,14 +118,14 @@ npm test
 # LLM API
 GLM_API_KEY=your_glm_api_key
 GLM_API_URL=https://open.bigmodel.cn/api/paas/v4/chat/completions
+GLM_MODEL=glm-4-plus
 
 # 服务器配置
 PORT=3000
-HOST=localhost
+WS_PORT=3001
 
 # 存储配置
 MEMORY_DIR=./memory
-SESSION_DIR=./sessions
 ```
 
 ---
@@ -142,22 +154,18 @@ SESSION_DIR=./sessions
 - ✅ Markdown 渲染
 
 ### 2. 工具调用
-- ✅ 文件操作（读/写/编辑）
-- ✅ Web 访问（搜索/抓取）
-- ✅ Shell 执行（限制权限）
-- ✅ 记忆管理（读/写/搜索）
+- ✅ 文件操作（读/写/列目录）
+- ✅ Shell 执行（白名单）
+- ✅ 获取时间
 
 ### 3. 记忆系统
 - ✅ 短期记忆（会话内）
 - ✅ 长期记忆（文件持久化）
 - ✅ 语义搜索（关键词）
-- ✅ 记忆索引
 
 ### 4. 会话管理
 - ✅ 会话创建/删除
 - ✅ 会话历史
-- ✅ 会话切换
-- ✅ 导出/导入
 
 ---
 
@@ -184,8 +192,7 @@ SESSION_DIR=./sessions
 
 - [架构说明](docs/ARCHITECTURE.md) - 系统架构详解
 - [API 文档](docs/API.md) - API 参考
-- [教程](docs/TUTORIAL.md) - 快速入门
-- [贡献指南](CONTRIBUTING.md) - 如何贡献
+- [快速上手](docs/GETTING-STARTED.md) - 启动与使用
 
 ---
 
@@ -209,49 +216,19 @@ npm run test:coverage
 
 ## 🔄 开发计划
 
-### 阶段 1：核心引擎 ✅
-- [x] 搭建项目结构
-- [ ] 实现 `agent.js`（主逻辑）
-- [ ] 实现 `llm.js`（GLM-4 适配器）
-- [ ] 实现 `tools.js`（工具管理）
-- [ ] 实现基础工具集
+### 已完成
+- [x] 核心引擎（Agent / LLM / Tools / Memory）
+- [x] Web 服务器与 WebSocket
+- [x] WebChat UI
+- [x] 架构与 API 文档
 
-### 阶段 2：记忆与存储
-- [ ] 实现 `memory.js`
-- [ ] 实现 `session.js`
-- [ ] 设计记忆存储格式
-
-### 阶段 3：用户界面
-- [ ] 设计 UI 布局
-- [ ] 实现 WebSocket 通信
-- [ ] 实现消息渲染
-
-### 阶段 4：文档与测试
-- [ ] 编写架构文档
-- [ ] 编写 API 文档
-- [ ] 补充测试用例
-
----
-
-## 🎯 成功标准
-
-### 技术指标
-- ✅ 启动时间 < 3 秒
-- ✅ 响应时间 < 2 秒
-- ✅ 内存占用 < 200MB
-- ✅ 测试覆盖率 > 80%
-
-### 功能指标
-- ✅ 支持完整的对话流程
-- ✅ 支持至少 10 个工具
-- ✅ 记忆系统功能完整
-- ✅ 文档覆盖所有功能
-
----
+### 进行中
+- [ ] 测试用例与覆盖率
+- [ ] 文档持续完善
 
 ## 🤝 贡献
 
-欢迎贡献！请查看 [贡献指南](CONTRIBUTING.md)。
+欢迎贡献！请直接提交 Issue 或 PR。
 
 ---
 
