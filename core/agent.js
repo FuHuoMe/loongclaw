@@ -213,6 +213,53 @@ class Agent {
       this.tools.toAPIFormat()
     );
     
+    if (response.tool_calls && response.tool_calls.length > 0) {
+      const toolResults = [];
+      
+      for (const toolCall of response.tool_calls) {
+        const toolName = toolCall.function.name;
+        const toolArgs = JSON.parse(toolCall.function.arguments);
+        
+        try {
+          const result = await this.tools.call(toolName, toolArgs);
+          toolResults.push({
+            role: 'tool',
+            tool_call_id: toolCall.id,
+            name: toolName,
+            content: JSON.stringify(result)
+          });
+        } catch (error) {
+          toolResults.push({
+            role: 'tool',
+            tool_call_id: toolCall.id,
+            name: toolName,
+            content: JSON.stringify({ error: error.message })
+          });
+        }
+      }
+      
+      const finalResponse = await this.llm.chat(
+        [
+          { role: 'system', content: this.systemPrompt },
+          ...context,
+          ...session.messages,
+          { role: 'assistant', content: response.content, tool_calls: response.tool_calls },
+          ...toolResults
+        ]
+      );
+      
+      session.messages.push({
+        role: 'assistant',
+        content: finalResponse.content
+      });
+      
+      if (finalResponse.content) {
+        onChunk(finalResponse.content);
+      }
+      
+      return finalResponse.content;
+    }
+    
     session.messages.push({
       role: 'assistant',
       content: response.content
