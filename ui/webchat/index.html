@@ -485,7 +485,7 @@
 
         // 更新最后一条消息（流式）
         function updateLastMessage(content) {
-            const messages = messagesContainer.querySelectorAll('.message[streaming="true"]');
+            const messages = messagesContainer.querySelectorAll('.message[data-streaming="true"]');
             if (messages.length === 0) {
                 addMessage('assistant', '', true);
             }
@@ -501,7 +501,7 @@
 
         // 完成最后一条消息
         function finalizeLastMessage() {
-            const messages = messagesContainer.querySelectorAll('.message[streaming="true"]');
+            const messages = messagesContainer.querySelectorAll('.message[data-streaming="true"]');
             if (messages.length > 0) {
                 const lastMessage = messages[messages.length - 1];
                 lastMessage.dataset.streaming = 'false';
