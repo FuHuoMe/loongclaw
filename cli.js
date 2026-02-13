@@ -48,21 +48,31 @@ function parseArgs(argv) {
 }
 
 function buildAgentConfig() {
+  const provider = process.env.LLM_PROVIDER || 'deepseek';
+  const apiKey = provider === 'glm'
+    ? process.env.GLM_API_KEY
+    : (provider === 'kimi'
+      ? process.env.KIMI_API_KEY
+      : (process.env.DEEPSEEK_API_KEY || process.env.GLM_API_KEY));
+  const apiUrl = provider === 'glm'
+    ? (process.env.GLM_API_URL || 'https://open.bigmodel.cn/api/anthropic')
+    : (provider === 'kimi'
+      ? (process.env.KIMI_API_URL || 'https://api.moonshot.cn/v1/chat/completions')
+      : (process.env.DEEPSEEK_API_URL || 'https://api.deepseek.com/v1/chat/completions'));
+  const model = provider === 'glm'
+    ? (process.env.GLM_MODEL
+      ? process.env.GLM_MODEL.split(',').map(item => item.trim()).filter(Boolean)
+      : ['glm-5', 'glm-4.7'])
+    : (provider === 'kimi'
+      ? (process.env.KIMI_MODEL || 'moonshot-v1-8k')
+      : (process.env.DEEPSEEK_MODEL || 'deepseek-chat'));
   return {
     llm: {
-      provider: process.env.LLM_PROVIDER || 'deepseek',
-      apiKey: process.env.LLM_PROVIDER === 'glm'
-        ? process.env.GLM_API_KEY
-        : (process.env.DEEPSEEK_API_KEY || process.env.GLM_API_KEY),
-      apiUrl: process.env.LLM_PROVIDER === 'glm'
-        ? (process.env.GLM_API_URL || 'https://open.bigmodel.cn/api/anthropic')
-        : (process.env.DEEPSEEK_API_URL || 'https://api.deepseek.com/v1/chat/completions'),
-      format: process.env.LLM_FORMAT || (process.env.LLM_PROVIDER === 'glm' ? null : 'openai'),
-      model: process.env.LLM_PROVIDER === 'glm'
-        ? (process.env.GLM_MODEL
-          ? process.env.GLM_MODEL.split(',').map(item => item.trim()).filter(Boolean)
-          : ['glm-5', 'glm-4.7'])
-        : (process.env.DEEPSEEK_MODEL || 'deepseek-chat')
+      provider,
+      apiKey,
+      apiUrl,
+      format: process.env.LLM_FORMAT || (provider === 'glm' ? null : 'openai'),
+      model
     },
     memory: {
       memoryDir: process.env.MEMORY_DIR || './memory'
