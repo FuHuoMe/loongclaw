@@ -374,19 +374,22 @@ class Agent {
     const models = Array.isArray(this.llm?.models)
       ? this.llm.models
       : (currentModel ? [currentModel] : []);
+    const language = (this.config.system?.language || 'zh').toLowerCase();
     if (command === 'models') {
       const lines = [
-        `当前提供商: ${provider}`,
-        `当前模型: ${currentModel || '-'}`,
-        '可用模型:',
+        language === 'en' ? `Current provider: ${provider}` : `当前提供商: ${provider}`,
+        language === 'en' ? `Current model: ${currentModel || '-'}` : `当前模型: ${currentModel || '-'}`,
+        language === 'en' ? 'Available models:' : '可用模型:',
         ...models.map(item => `- ${item}`)
       ];
       return lines.join('\n');
     }
     const lines = [
-      `当前提供商: ${provider}`,
-      `当前模型: ${currentModel || '-'}`,
-      '这是内部指令，请在 CLI 中使用 /model 或 /models'
+      language === 'en' ? `Current provider: ${provider}` : `当前提供商: ${provider}`,
+      language === 'en' ? `Current model: ${currentModel || '-'}` : `当前模型: ${currentModel || '-'}`,
+      language === 'en'
+        ? 'This is an internal command. Use /model or /models in CLI'
+        : '这是内部指令，请在 CLI 中使用 /model 或 /models'
     ];
     return lines.join('\n');
   }
@@ -504,6 +507,41 @@ class Agent {
       minute: '2-digit'
     });
     
+    const language = (this.config.system.language || 'zh').toLowerCase();
+    if (language === 'en') {
+      const time = new Date().toLocaleString('en-US', {
+        timeZone: this.config.system.timezone,
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+      return `You are ${this.config.system.name}, ${this.config.system.role}.
+
+${this.config.system.vibe}
+
+**Current time**: ${time} (${this.config.system.timezone})
+
+**Core principles**:
+- Help sincerely without performative politeness
+- Keep your own judgment and opinions
+- Try to solve first, then ask
+- Win trust through action, not empty promises
+
+**Available tools**:
+${this.tools.getAll().map(t => `- ${t.name}: ${t.description}`).join('\n')}
+
+**Memory system**:
+- Short-term memory: current session context
+- Long-term memory: persisted important information
+
+**Notes**:
+- Protect privacy, never leak sensitive info
+- Be cautious before external actions
+- Say you don't know if you don't know
+`;
+    }
     return `你是 ${this.config.system.name}，${this.config.system.role}。
 
 ${this.config.system.vibe}

@@ -59,6 +59,21 @@ function normalizeModelList(value, fallback) {
   return fallback;
 }
 
+function resolveLanguage(input) {
+  const value = (input || '').toLowerCase();
+  if (value === 'zh' || value === 'zh-cn' || value === 'cn' || value === '中文' || value === 'chinese') {
+    return 'zh';
+  }
+  if (value === 'en' || value === 'en-us' || value === 'english') {
+    return 'en';
+  }
+  return 'en';
+}
+
+function getDefaultLanguage() {
+  return resolveLanguage(process.env.CLI_LANG || process.env.LOONGCLAW_LANG);
+}
+
 function getDefaultModels(provider) {
   if (provider === 'glm') {
     return normalizeModelList(process.env.GLM_MODEL, ['glm-5', 'glm-4.7']);
@@ -83,6 +98,7 @@ function buildAgentConfig(overrides = {}) {
       : (process.env.DEEPSEEK_API_URL || 'https://api.deepseek.com/v1/chat/completions')));
   const defaultModels = getDefaultModels(provider);
   const model = overrides.llm?.model ?? (provider === 'glm' ? defaultModels : defaultModels[0]);
+  const language = resolveLanguage(overrides.system?.language || getDefaultLanguage());
   return {
     llm: {
       provider,
@@ -98,7 +114,8 @@ function buildAgentConfig(overrides = {}) {
       name: '熊大',
       role: '森林守护者',
       vibe: '强壮、聪明、勇敢，保护森林',
-      timezone: 'Asia/Shanghai'
+      timezone: 'Asia/Shanghai',
+      language
     }
   };
 }
@@ -126,7 +143,8 @@ function formatModelStatus(config) {
   return {
     provider,
     model: currentModel,
-    apiUrl
+    apiUrl,
+    language: resolveLanguage(config.system?.language || getDefaultLanguage())
   };
 }
 
@@ -136,6 +154,56 @@ function outputText(text, options) {
     return;
   }
   process.stdout.write(`${text}\n`);
+}
+
+function t(lang, key, data = {}) {
+  const dict = {
+    en: {
+      currentProvider: 'Current provider',
+      currentModel: 'Current model',
+      availableModels: 'Available models',
+      usage: 'Usage',
+      switchedProvider: 'Switched provider',
+      switchedModel: 'Switched model',
+      apiUrl: 'API URL',
+      missingApiKey: 'Missing API key, cannot switch to',
+      unknownCommand: 'Unknown command',
+      commands: 'Commands',
+      langUsage: 'Usage',
+      langCurrent: 'Current language',
+      langChanged: 'Language changed',
+      langOptions: 'Options',
+      langInvalid: 'Unsupported language, fallback to English',
+      readPathMissing: 'Missing file path: --read <path>',
+      writePathMissing: 'Missing file path: --write <path> <content>',
+      writeSuccess: 'Write success',
+      internalModelHint: 'This is an internal command. Use /model or /models in CLI'
+    },
+    zh: {
+      currentProvider: '当前提供商',
+      currentModel: '当前模型',
+      availableModels: '可用模型',
+      usage: '用法',
+      switchedProvider: '已切换提供商',
+      switchedModel: '已切换模型',
+      apiUrl: 'API 地址',
+      missingApiKey: '缺少 API Key，无法切换到',
+      unknownCommand: '未知命令',
+      commands: '可用命令',
+      langUsage: '用法',
+      langCurrent: '当前语言',
+      langChanged: '已切换语言',
+      langOptions: '可选值',
+      langInvalid: '不支持的语言，已回退为英文',
+      readPathMissing: '缺少文件路径：--read <path>',
+      writePathMissing: '缺少文件路径：--write <path> <content>',
+      writeSuccess: '写入成功',
+      internalModelHint: '这是内部指令，请在 CLI 中使用 /model 或 /models'
+    }
+  };
+  const base = dict[lang] || dict.en;
+  const template = base[key] || dict.en[key] || '';
+  return template.replace(/\{(\w+)\}/g, (_, name) => (data[name] ?? ''));
 }
 
 function cloneSessionHistory(sourceAgent, targetAgent, sessionId) {
@@ -165,10 +233,11 @@ async function handleSlashCommand(input, agent, state, options) {
     const targetProvider = args[0] || state.config.llm.provider;
     const models = getAvailableModels(targetProvider);
     const status = formatModelStatus(state.config);
+    const lang = status.language;
     const lines = [
-      `当前提供商: ${status.provider}`,
-      `当前模型: ${status.model || '-'}`,
-      `可用模型 (${targetProvider}):`,
+      `${t(lang, 'currentProvider')}: ${status.provider}`,
+      `${t(lang, 'currentModel')}: ${status.model || '-'}`,
+      `${t(lang, 'availableModels')} (${targetProvider}):`,
       ...models.map(item => `- ${item}`)
     ];
     outputText(lines.join('\n'), options);
@@ -176,11 +245,12 @@ async function handleSlashCommand(input, agent, state, options) {
   }
   if (command === 'model') {
     const status = formatModelStatus(state.config);
+    const lang = status.language;
     if (args.length === 0) {
       const lines = [
-        `当前提供商: ${status.provider}`,
-        `当前模型: ${status.model || '-'}`,
-        '用法:',
+        `${t(lang, 'currentProvider')}: ${status.provider}`,
+        `${t(lang, 'currentModel')}: ${status.model || '-'}`,
+        `${t(lang, 'usage')}:`,
         '/models [provider]',
         '/model <provider> [model]',
         '/model <model>'
@@ -204,35 +274,86 @@ async function handleSlashCommand(input, agent, state, options) {
       llm: {
         provider: nextProvider,
         model: resolvedModel
+      },
+      system: {
+        language: state.config.system?.language || getDefaultLanguage()
       }
     });
     if (!nextConfig.llm.apiKey) {
-      outputText(`缺少 API Key，无法切换到 ${nextProvider}`, options);
+      outputText(`${t(lang, 'missingApiKey')} ${nextProvider}`, options);
       return { handled: true, agent };
     }
     const nextAgent = await createAgent(nextConfig);
     cloneSessionHistory(agent, nextAgent, state.sessionId);
     state.config = nextConfig;
     const updated = formatModelStatus(state.config);
+    const updatedLang = updated.language;
     const lines = [
-      `已切换提供商: ${updated.provider}`,
-      `已切换模型: ${updated.model || '-'}`,
-      `API 地址: ${updated.apiUrl || '-'}`
+      `${t(updatedLang, 'switchedProvider')}: ${updated.provider}`,
+      `${t(updatedLang, 'switchedModel')}: ${updated.model || '-'}`,
+      `${t(updatedLang, 'apiUrl')}: ${updated.apiUrl || '-'}`
     ];
     outputText(lines.join('\n'), options);
     return { handled: true, agent: nextAgent };
   }
-  if (command === 'help') {
+  if (command === 'lang') {
+    const status = formatModelStatus(state.config);
+    const lang = status.language;
+    if (args.length === 0) {
+      const lines = [
+        `${t(lang, 'langCurrent')}: ${lang}`,
+        `${t(lang, 'langUsage')}:`,
+        '/lang en',
+        '/lang zh',
+        `${t(lang, 'langOptions')}: en | zh`
+      ];
+      outputText(lines.join('\n'), options);
+      return { handled: true, agent };
+    }
+    const raw = (args[0] || '').toLowerCase();
+    const supported = ['en', 'en-us', 'english', 'zh', 'zh-cn', 'cn', '中文', 'chinese'];
+    const nextLang = resolveLanguage(raw);
+    const nextConfig = buildAgentConfig({
+      llm: {
+        provider: state.config.llm?.provider,
+        model: getCurrentModel(state.config)
+      },
+      system: {
+        language: nextLang
+      }
+    });
+    if (!nextConfig.llm.apiKey) {
+      outputText(`${t(lang, 'missingApiKey')} ${state.config.llm?.provider || 'deepseek'}`, options);
+      return { handled: true, agent };
+    }
+    const nextAgent = await createAgent(nextConfig);
+    cloneSessionHistory(agent, nextAgent, state.sessionId);
+    state.config = nextConfig;
     const lines = [
-      '可用命令:',
+      `${t(nextLang, 'langChanged')}: ${nextLang}`
+    ];
+    outputText(lines.join('\n'), options);
+    if (!supported.includes(raw)) {
+      outputText(t(nextLang, 'langInvalid'), options);
+    }
+    return { handled: true, agent: nextAgent };
+  }
+  if (command === 'help') {
+    const status = formatModelStatus(state.config);
+    const lang = status.language;
+    const lines = [
+      `${t(lang, 'commands')}:`,
       '/model <provider> [model]',
       '/model <model>',
-      '/models [provider]'
+      '/models [provider]',
+      '/lang en|zh'
     ];
     outputText(lines.join('\n'), options);
     return { handled: true, agent };
   }
-  outputText(`未知命令: /${command}`, options);
+  const status = formatModelStatus(state.config);
+  const lang = status.language;
+  outputText(`${t(lang, 'unknownCommand')}: /${command}`, options);
   return { handled: true, agent };
 }
 
@@ -290,12 +411,13 @@ async function runList(listPath, options) {
 }
 
 async function runRead(readPath, options) {
+  const lang = getDefaultLanguage();
   const workspaceDir = './workspace';
   if (!existsSync(workspaceDir)) {
     await mkdir(workspaceDir, { recursive: true });
   }
   if (!readPath) {
-    process.stderr.write('缺少文件路径：--read <path>\n');
+    process.stderr.write(`${t(lang, 'readPathMissing')}\n`);
     process.exit(1);
   }
   const tools = createToolManager();
@@ -308,12 +430,13 @@ async function runRead(readPath, options) {
 }
 
 async function runWrite(writePath, writeContent, options) {
+  const lang = getDefaultLanguage();
   const workspaceDir = './workspace';
   if (!existsSync(workspaceDir)) {
     await mkdir(workspaceDir, { recursive: true });
   }
   if (!writePath) {
-    process.stderr.write('缺少文件路径：--write <path> <content>\n');
+    process.stderr.write(`${t(lang, 'writePathMissing')}\n`);
     process.exit(1);
   }
   const tools = createToolManager();
@@ -323,7 +446,7 @@ async function runWrite(writePath, writeContent, options) {
     return;
   }
   if (result?.success) {
-    process.stdout.write(`写入成功：${result.path}\n`);
+    process.stdout.write(`${t(lang, 'writeSuccess')}: ${result.path}\n`);
   } else {
     process.stdout.write(`${JSON.stringify(result)}\n`);
   }
