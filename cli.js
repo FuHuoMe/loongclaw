@@ -173,6 +173,7 @@ function t(lang, key, data = {}) {
       langCurrent: 'Current language',
       langChanged: 'Language changed',
       langOptions: 'Options',
+      langInputHint: 'Type en or zh',
       langInvalid: 'Unsupported language, fallback to English',
       readPathMissing: 'Missing file path: --read <path>',
       writePathMissing: 'Missing file path: --write <path> <content>',
@@ -194,6 +195,7 @@ function t(lang, key, data = {}) {
       langCurrent: '当前语言',
       langChanged: '已切换语言',
       langOptions: '可选值',
+      langInputHint: '请输入 en 或 zh',
       langInvalid: '不支持的语言，已回退为英文',
       readPathMissing: '缺少文件路径：--read <path>',
       writePathMissing: '缺少文件路径：--write <path> <content>',
@@ -305,9 +307,11 @@ async function handleSlashCommand(input, agent, state, options) {
         `${t(lang, 'langUsage')}:`,
         '/lang en',
         '/lang zh',
-        `${t(lang, 'langOptions')}: en | zh`
+        `${t(lang, 'langOptions')}: en | zh`,
+        t(lang, 'langInputHint')
       ];
       outputText(lines.join('\n'), options);
+      state.awaitingLanguage = true;
       return { handled: true, agent };
     }
     const raw = (args[0] || '').toLowerCase();
@@ -375,10 +379,14 @@ async function runRepl(agent, options, state) {
   const ask = () => new Promise(resolve => rl.question('> ', resolve));
   let currentAgent = agent;
   while (true) {
-    const message = await ask();
+    let message = await ask();
     if (!message || message.trim().toLowerCase() === 'exit') {
       rl.close();
       break;
+    }
+    if (state.awaitingLanguage && message.trim() && !message.trim().startsWith('/')) {
+      message = `/lang ${message.trim()}`;
+      state.awaitingLanguage = false;
     }
     const handled = await handleSlashCommand(message, currentAgent, state, options);
     if (handled.handled) {
@@ -469,7 +477,8 @@ async function main() {
   const initialConfig = buildAgentConfig();
   const state = {
     config: initialConfig,
-    sessionId: args.sessionId
+    sessionId: args.sessionId,
+    awaitingLanguage: false
   };
   const agent = await createAgent(initialConfig);
   if (args.repl || !message) {
