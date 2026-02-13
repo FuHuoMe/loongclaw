@@ -8,7 +8,7 @@ import express from 'express';
 import { WebSocketServer, WebSocket } from 'ws';
 import { createServer } from 'http';
 import { fileURLToPath } from 'url';
-import { dirname, join } from 'path';
+import { dirname } from 'path';
 import { createAgent } from './agent.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -49,9 +49,6 @@ class WebServer {
   setupMiddleware() {
     // JSON 解析
     this.app.use(express.json());
-    
-    // 静态文件服务
-    this.app.use('/static', express.static(join(__dirname, '../ui/webchat/static')));
     
     // CORS
     this.app.use((req, res, next) => {
@@ -171,11 +168,6 @@ class WebServer {
       } catch (error) {
         res.status(500).json({ error: error.message });
       }
-    });
-
-    // 主页（WebChat）
-    this.app.get('/', (req, res) => {
-      res.sendFile(join(__dirname, '../ui/webchat/index.html'));
     });
 
     // 404
