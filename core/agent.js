@@ -4,10 +4,13 @@
  * 核心对话逻辑，协调 LLM、工具和记忆
  */
 
+import { config } from 'dotenv';
 import { createGLMAdapter } from './llm.js';
 import { createToolManager } from './tools.js';
 import { createMemorySystem, MemoryType, MemoryImportance } from './memory.js';
 import { readFile } from 'fs/promises';
+
+config();
 
 /**
  * Agent 配置
