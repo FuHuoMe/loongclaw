@@ -108,6 +108,19 @@ class Agent {
     try {
       // 获取或创建会话
       const session = this._getOrCreateSession(sessionId);
+
+      const internalResponse = this._handleInternalCommand(message);
+      if (internalResponse) {
+        session.messages.push({
+          role: 'user',
+          content: message
+        });
+        session.messages.push({
+          role: 'assistant',
+          content: internalResponse
+        });
+        return internalResponse;
+      }
       
       // 添加用户消息到历史
       session.messages.push({
@@ -216,6 +229,22 @@ class Agent {
    */
   async processStream(message, onChunk, sessionId = 'default') {
     const session = this._getOrCreateSession(sessionId);
+
+    const internalResponse = this._handleInternalCommand(message);
+    if (internalResponse) {
+      session.messages.push({
+        role: 'user',
+        content: message
+      });
+      session.messages.push({
+        role: 'assistant',
+        content: internalResponse
+      });
+      if (internalResponse) {
+        onChunk(internalResponse);
+      }
+      return internalResponse;
+    }
     
     session.messages.push({
       role: 'user',
@@ -325,6 +354,41 @@ class Agent {
     } else {
       this.sessions.delete(sessionId);
     }
+  }
+
+  _handleInternalCommand(message) {
+    if (!message || typeof message !== 'string') {
+      return null;
+    }
+    const trimmed = message.trim();
+    if (!trimmed.startsWith('/')) {
+      return null;
+    }
+    const parts = trimmed.slice(1).trim().split(/\s+/).filter(Boolean);
+    const command = (parts[0] || '').toLowerCase();
+    if (!command || (command !== 'model' && command !== 'models')) {
+      return null;
+    }
+    const provider = this.config.llm?.provider || 'deepseek';
+    const currentModel = this.llm?.model || '';
+    const models = Array.isArray(this.llm?.models)
+      ? this.llm.models
+      : (currentModel ? [currentModel] : []);
+    if (command === 'models') {
+      const lines = [
+        `当前提供商: ${provider}`,
+        `当前模型: ${currentModel || '-'}`,
+        '可用模型:',
+        ...models.map(item => `- ${item}`)
+      ];
+      return lines.join('\n');
+    }
+    const lines = [
+      `当前提供商: ${provider}`,
+      `当前模型: ${currentModel || '-'}`,
+      '这是内部指令，请在 CLI 中使用 /model 或 /models'
+    ];
+    return lines.join('\n');
   }
 
   _parseToolArguments(rawArgs) {
