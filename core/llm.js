@@ -218,10 +218,36 @@ class LLMAdapter {
   _buildOpenAIRequest(messages, tools, options, stream, model) {
     const requestBody = {
       model,
-      messages: messages.map(msg => ({
-        role: msg.role,
-        content: msg.content
-      })),
+      messages: messages.map(msg => {
+        if (msg.role === 'tool') {
+          const toolMessage = {
+            role: 'tool',
+            content: msg.content ?? ''
+          };
+          const toolCallId = msg.tool_call_id || msg.id;
+          if (toolCallId) {
+            toolMessage.tool_call_id = toolCallId;
+          }
+          if (msg.name) {
+            toolMessage.name = msg.name;
+          }
+          return toolMessage;
+        }
+        if (msg.role === 'assistant') {
+          const assistantMessage = {
+            role: 'assistant',
+            content: msg.content ?? ''
+          };
+          if (msg.tool_calls && msg.tool_calls.length > 0) {
+            assistantMessage.tool_calls = msg.tool_calls;
+          }
+          return assistantMessage;
+        }
+        return {
+          role: msg.role,
+          content: msg.content
+        };
+      }),
       temperature: options.temperature || 0.7,
       max_tokens: options.maxTokens || 2000,
       stream
@@ -270,7 +296,7 @@ class LLMAdapter {
   _handleOpenAIStream(response, onChunk) {
     return new Promise((resolve, reject) => {
       let fullContent = '';
-      let toolCalls = [];
+      const toolCallBuffers = new Map();
 
       response.data.on('data', (chunk) => {
         const lines = chunk.toString().split('\n').filter(line => line.trim() !== '');
@@ -293,7 +319,20 @@ class LLMAdapter {
               }
               
               if (delta?.tool_calls) {
-                toolCalls.push(...delta.tool_calls);
+                for (const toolCallDelta of delta.tool_calls) {
+                  const index = toolCallDelta.index ?? 0;
+                  const current = toolCallBuffers.get(index) || { id: null, name: null, arguments: '' };
+                  if (toolCallDelta.id) {
+                    current.id = toolCallDelta.id;
+                  }
+                  if (toolCallDelta.function?.name) {
+                    current.name = toolCallDelta.function.name;
+                  }
+                  if (toolCallDelta.function?.arguments) {
+                    current.arguments += toolCallDelta.function.arguments;
+                  }
+                  toolCallBuffers.set(index, current);
+                }
               }
             } catch (e) {
             }
@@ -302,6 +341,14 @@ class LLMAdapter {
       });
 
       response.data.on('end', () => {
+        const toolCalls = Array.from(toolCallBuffers.entries()).map(([index, toolCall]) => ({
+          id: toolCall.id || `tool_call_${Date.now()}_${index}`,
+          type: 'function',
+          function: {
+            name: toolCall.name || '',
+            arguments: toolCall.arguments || ''
+          }
+        }));
         resolve({
           content: fullContent,
           tool_calls: toolCalls,
