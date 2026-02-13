@@ -399,9 +399,8 @@ class LLMAdapter {
 
   _normalizeError(error) {
     if (error.response) {
-      return new Error(
-        `LLM API 错误: ${error.response.status} - ${JSON.stringify(error.response.data)}`
-      );
+      const responseData = this._safeStringify(error.response.data);
+      return new Error(`LLM API 错误: ${error.response.status} - ${responseData}`);
     }
     if (error.request) {
       return new Error(`LLM API 请求失败: ${error.message}`);
@@ -426,7 +425,7 @@ class LLMAdapter {
 
   _shouldFallback(error) {
     const status = error.response?.status;
-    const message = error.response?.data ? JSON.stringify(error.response.data) : error.message || '';
+    const message = error.response?.data ? this._safeStringify(error.response.data) : error.message || '';
     if (status === 404) {
       return true;
     }
@@ -434,6 +433,26 @@ class LLMAdapter {
       return true;
     }
     return false;
+  }
+
+  _safeStringify(data) {
+    if (data === null || data === undefined) {
+      return '';
+    }
+    if (typeof data === 'string') {
+      return data;
+    }
+    if (Buffer.isBuffer(data)) {
+      return data.toString('utf-8');
+    }
+    if (typeof data?.pipe === 'function') {
+      return '[stream]';
+    }
+    try {
+      return JSON.stringify(data);
+    } catch (error) {
+      return '[unserializable]';
+    }
   }
 
   /**
