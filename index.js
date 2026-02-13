@@ -23,8 +23,10 @@ async function main() {
       llm: {
         provider: 'glm',
         apiKey: process.env.GLM_API_KEY,
-        apiUrl: process.env.GLM_API_URL || 'https://open.bigmodel.cn/api/paas/v4/chat/completions',
-        model: process.env.GLM_MODEL || 'glm-4-flash'
+        apiUrl: process.env.GLM_API_URL || 'https://open.bigmodel.cn/api/anthropic',
+        model: process.env.GLM_MODEL
+          ? process.env.GLM_MODEL.split(',').map(item => item.trim()).filter(Boolean)
+          : ['glm-5', 'glm-4.7']
       },
       memory: {
         memoryDir: process.env.MEMORY_DIR || './memory'

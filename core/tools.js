@@ -6,6 +6,7 @@
 
 import { readdir, readFile, writeFile, mkdir } from 'fs/promises';
 import { existsSync } from 'fs';
+import path from 'path';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 
@@ -44,13 +45,13 @@ class Tool {
    * @param {Object} args - 参数对象
    * @returns {Promise<any>} 执行结果
    */
-  async execute(args) {
+  async execute(args, manager) {
     try {
       // 验证参数
       this._validateParameters(args);
       
       // 执行处理函数
-      return await this.handler(args);
+      return await this.handler(args, manager);
       
     } catch (error) {
       throw new Error(`工具 "${this.name}" 执行失败: ${error.message}`);
@@ -167,7 +168,7 @@ class ToolManager {
       throw new Error(`工具不存在: ${name}`);
     }
     
-    return await tool.execute(args);
+    return await tool.execute(args, this);
   }
 
   /**
@@ -184,13 +185,11 @@ class ToolManager {
    * @returns {boolean} 是否允许
    */
   isPathAllowed(path) {
-    // 规范化路径
-    const normalizedPath = path.replace(/\.\.\//g, '');
-    
-    // 检查是否在允许的路径下
-    return this.allowedPaths.some(allowedPath => 
-      normalizedPath.startsWith(allowedPath)
-    );
+    const normalizedPath = path.resolve(path);
+    return this.allowedPaths.some(allowedPath => {
+      const allowedResolved = path.resolve(allowedPath);
+      return normalizedPath === allowedResolved || normalizedPath.startsWith(`${allowedResolved}${path.sep}`);
+    });
   }
 }
 
@@ -341,15 +340,26 @@ export const builtinTools = {
       required: ['command']
     },
     handler: async (args) => {
-      // 命令白名单
+      const command = (args.command || '').trim();
+      if (!command) {
+        throw new Error('命令不能为空');
+      }
+      const unsafePattern = /[;&|<>`$]/;
+      if (unsafePattern.test(command)) {
+        throw new Error('命令包含非法字符');
+      }
+      const parts = command.split(/\s+/);
+      const tokenPattern = /^[a-zA-Z0-9._/-]+$/;
+      if (!parts.every(part => tokenPattern.test(part))) {
+        throw new Error('命令包含非法参数');
+      }
       const whitelist = ['ls', 'pwd', 'echo', 'cat', 'head', 'tail', 'grep', 'wc'];
-      const commandName = args.command.split(' ')[0];
-      
+      const commandName = parts[0];
       if (!whitelist.includes(commandName)) {
         throw new Error(`命令不在白名单中: ${commandName}`);
       }
       
-      const { stdout, stderr } = await execAsync(args.command, {
+      const { stdout, stderr } = await execAsync(command, {
         timeout: args.timeout || 30000
       });
       

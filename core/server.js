@@ -91,6 +91,12 @@ class WebServer {
       }
     });
 
+    this.app.get('/api/config', (req, res) => {
+      res.json({
+        wsPort: this.wsPort
+      });
+    });
+
     // 获取会话历史
     this.app.get('/api/history/:sessionId?', (req, res) => {
       try {

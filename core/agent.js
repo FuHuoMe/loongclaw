@@ -4,10 +4,13 @@
  * 核心对话逻辑，协调 LLM、工具和记忆
  */
 
+import { config } from 'dotenv';
 import { createGLMAdapter } from './llm.js';
 import { createToolManager } from './tools.js';
 import { createMemorySystem, MemoryType, MemoryImportance } from './memory.js';
 import { readFile } from 'fs/promises';
+
+config();
 
 /**
  * Agent 配置
@@ -18,7 +21,7 @@ class AgentConfig {
       provider: config.llm?.provider || 'glm',
       apiKey: config.llm?.apiKey || process.env.GLM_API_KEY,
       apiUrl: config.llm?.apiUrl,
-      model: config.llm?.model || 'glm-4-plus'
+      model: config.llm?.model
     };
     
     this.memory = {
@@ -209,6 +212,53 @@ class Agent {
       onChunk,
       this.tools.toAPIFormat()
     );
+    
+    if (response.tool_calls && response.tool_calls.length > 0) {
+      const toolResults = [];
+      
+      for (const toolCall of response.tool_calls) {
+        const toolName = toolCall.function.name;
+        const toolArgs = JSON.parse(toolCall.function.arguments);
+        
+        try {
+          const result = await this.tools.call(toolName, toolArgs);
+          toolResults.push({
+            role: 'tool',
+            tool_call_id: toolCall.id,
+            name: toolName,
+            content: JSON.stringify(result)
+          });
+        } catch (error) {
+          toolResults.push({
+            role: 'tool',
+            tool_call_id: toolCall.id,
+            name: toolName,
+            content: JSON.stringify({ error: error.message })
+          });
+        }
+      }
+      
+      const finalResponse = await this.llm.chat(
+        [
+          { role: 'system', content: this.systemPrompt },
+          ...context,
+          ...session.messages,
+          { role: 'assistant', content: response.content, tool_calls: response.tool_calls },
+          ...toolResults
+        ]
+      );
+      
+      session.messages.push({
+        role: 'assistant',
+        content: finalResponse.content
+      });
+      
+      if (finalResponse.content) {
+        onChunk(finalResponse.content);
+      }
+      
+      return finalResponse.content;
+    }
     
     session.messages.push({
       role: 'assistant',
