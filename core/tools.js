@@ -184,8 +184,8 @@ class ToolManager {
    * @param {string} path - 检查的路径
    * @returns {boolean} 是否允许
    */
-  isPathAllowed(path) {
-    const normalizedPath = path.resolve(path);
+  isPathAllowed(targetPath) {
+    const normalizedPath = path.resolve(targetPath);
     return this.allowedPaths.some(allowedPath => {
       const allowedResolved = path.resolve(allowedPath);
       return normalizedPath === allowedResolved || normalizedPath.startsWith(`${allowedResolved}${path.sep}`);

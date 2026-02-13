@@ -367,22 +367,17 @@ class Agent {
       return [];
     }
     const result = [];
-    const invokeTag = '<｜DSML｜invoke';
-    let pos = content.indexOf(invokeTag);
-    let index = 0;
-    while (pos !== -1) {
-      const nameMatch = content.slice(pos).match(/<｜DSML｜invoke\s+name="([^"]+)"[^>]*>/);
-      if (!nameMatch) break;
-      const name = nameMatch[1];
-      const after = content.slice(pos + nameMatch[0].length);
-      const nextPos = after.indexOf(invokeTag);
-      const block = nextPos !== -1 ? after.slice(0, nextPos) : after;
+    const invokeRegex = /<[^>]*invoke\s+name="([^"]+)"[^>]*>([\s\S]*?)<\/[^>]*invoke>/g;
+    let match;
+    while ((match = invokeRegex.exec(content)) !== null) {
+      const name = match[1];
+      const block = match[2] || '';
       const params = {};
-      const paramRegex = /<｜DSML｜parameter\s+name="([^"]+)"[^>]*>([^\n<]*)/g;
-      let m;
-      while ((m = paramRegex.exec(block)) !== null) {
-        const key = m[1];
-        const valRaw = (m[2] || '').trim();
+      const paramRegex = /<[^>]*parameter\s+name="([^"]+)"[^>]*>([\s\S]*?)<\/[^>]*parameter>/g;
+      let p;
+      while ((p = paramRegex.exec(block)) !== null) {
+        const key = p[1];
+        const valRaw = (p[2] || '').trim();
         let val = valRaw;
         if (/^(true|false)$/i.test(valRaw)) {
           val = /^true$/i.test(valRaw);
@@ -398,8 +393,6 @@ class Agent {
           arguments: JSON.stringify(params)
         }
       });
-      pos = nextPos === -1 ? -1 : pos + nameMatch[0].length + nextPos;
-      index += 1;
     }
     return result;
   }
@@ -408,7 +401,11 @@ class Agent {
     if (!text || typeof text !== 'string') {
       return text;
     }
-    return text.replace(/<｜DSML｜[^>]*>/g, '');
+    let cleaned = text.replace(/<[^>]*function_calls[^>]*>[\s\S]*?<\/[^>]*function_calls>/g, '');
+    cleaned = cleaned.replace(/<[^>]*invoke[^>]*>[\s\S]*?<\/[^>]*invoke>/g, '');
+    cleaned = cleaned.replace(/<[^>]*parameter[^>]*>[\s\S]*?<\/[^>]*parameter>/g, '');
+    cleaned = cleaned.replace(/<\/?[^>]*DSML[^>]*>/g, '');
+    return cleaned;
   }
 
   _sanitizeStreamChunk(chunk) {

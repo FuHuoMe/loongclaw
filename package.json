@@ -7,6 +7,7 @@
   "scripts": {
     "start": "node index.js",
     "dev": "node --watch index.js",
+    "cli": "node cli.js",
     "test": "node --test tests/**/*.test.js",
     "test:unit": "node --test tests/unit/**/*.test.js",
     "test:integration": "node --test tests/integration/**/*.test.js",

@@ -298,6 +298,7 @@ class LLMAdapter {
     return new Promise((resolve, reject) => {
       let fullContent = '';
       const toolCallBuffers = new Map();
+      const functionCall = { name: null, arguments: '' };
 
       response.data.on('data', (chunk) => {
         const lines = chunk.toString().split('\n').filter(line => line.trim() !== '');
@@ -317,6 +318,15 @@ class LLMAdapter {
               if (delta?.content) {
                 fullContent += delta.content;
                 onChunk(delta.content);
+              }
+
+              if (delta?.function_call) {
+                if (delta.function_call.name) {
+                  functionCall.name = delta.function_call.name;
+                }
+                if (delta.function_call.arguments) {
+                  functionCall.arguments += delta.function_call.arguments;
+                }
               }
               
               if (delta?.tool_calls) {
@@ -342,7 +352,7 @@ class LLMAdapter {
       });
 
       response.data.on('end', () => {
-        const toolCalls = Array.from(toolCallBuffers.entries()).map(([index, toolCall]) => ({
+        let toolCalls = Array.from(toolCallBuffers.entries()).map(([index, toolCall]) => ({
           id: toolCall.id || `tool_call_${Date.now()}_${index}`,
           type: 'function',
           function: {
@@ -350,6 +360,18 @@ class LLMAdapter {
             arguments: toolCall.arguments || ''
           }
         }));
+        if (toolCalls.length === 0 && functionCall.name) {
+          toolCalls = [
+            {
+              id: `tool_call_${Date.now()}_0`,
+              type: 'function',
+              function: {
+                name: functionCall.name || '',
+                arguments: functionCall.arguments || ''
+              }
+            }
+          ];
+        }
         resolve({
           content: fullContent,
           tool_calls: toolCalls,
