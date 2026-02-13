@@ -11,6 +11,23 @@ import { config } from 'dotenv';
 // 加载环境变量
 config();
 
+function normalizeGlmApiUrl(input) {
+  const value = String(input || '').trim();
+  if (!value) {
+    return value;
+  }
+  if (value.endsWith('/chat/completions')) {
+    return value;
+  }
+  if (value.endsWith('/api/paas/v4') || value.endsWith('/api/paas/v4/')) {
+    return value.replace(/\/$/, '') + '/chat/completions';
+  }
+  if (value.endsWith('/api/coding/paas/v4') || value.endsWith('/api/coding/paas/v4/')) {
+    return value.replace(/\/$/, '') + '/chat/completions';
+  }
+  return value;
+}
+
 /**
  * 主函数
  */
@@ -18,18 +35,20 @@ async function main() {
   console.log('🐉 LoongClaw 启动中...\n');
   
   try {
+    const rawProvider = process.env.LLM_PROVIDER || 'deepseek';
+    const provider = rawProvider.toLowerCase() === 'chatglm' ? 'glm' : rawProvider;
     // 创建 Agent
     const agent = await createAgent({
       llm: {
-        provider: process.env.LLM_PROVIDER || 'deepseek',
-        apiKey: process.env.LLM_PROVIDER === 'glm'
+        provider,
+        apiKey: provider === 'glm'
           ? process.env.GLM_API_KEY
           : (process.env.DEEPSEEK_API_KEY || process.env.GLM_API_KEY),
-        apiUrl: process.env.LLM_PROVIDER === 'glm'
-          ? (process.env.GLM_API_URL || 'https://open.bigmodel.cn/api/anthropic')
-          : (process.env.DEEPSEEK_API_URL || 'https://api.deepseek.com/v1/chat/completions'),
-        format: process.env.LLM_FORMAT || (process.env.LLM_PROVIDER === 'glm' ? null : 'openai'),
-        model: process.env.LLM_PROVIDER === 'glm'
+        apiUrl: provider === 'glm'
+          ? normalizeGlmApiUrl(process.env.GLM_API_URL || 'https://open.bigmodel.cn/api/paas/v4/chat/completions')
+          : String(process.env.DEEPSEEK_API_URL || 'https://api.deepseek.com/v1/chat/completions').trim(),
+        format: process.env.LLM_FORMAT || (provider === 'glm' ? null : 'openai'),
+        model: provider === 'glm'
           ? (process.env.GLM_MODEL
             ? process.env.GLM_MODEL.split(',').map(item => item.trim()).filter(Boolean)
             : ['glm-5', 'glm-4.7'])

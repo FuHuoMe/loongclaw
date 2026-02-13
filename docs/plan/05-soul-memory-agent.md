@@ -1,0 +1,49 @@
+# 05 Soul / Memory / Agent 文件设计
+
+## 目标
+- 将人格、能力、记忆与执行规则分层
+- 通过文件化配置实现可复用与可版本化
+
+## 文件结构建议
+- `config/SOUL.md`
+  - 角色设定、语气、价值观、禁区
+- `config/AGENT.md`
+  - 工具使用规则、执行流程、输出格式
+- `config/SETTINGS.md`
+  - 运行参数、能力开关、行为约束
+- `memory/`
+  - 结构化记忆存储（事件、偏好、项目约束）
+
+## 内容分层原则
+- Soul：不变人格与稳定偏好
+- Agent：执行策略与格式约束
+- Memory：可变化的项目事实与历史
+
+## 读写机制
+- 启动时读取 `SOUL.md` 与 `AGENT.md`
+- 对话过程中写入 `memory/` 目录
+- 支持导出与清理
+
+## 扩展方向
+- 支持多套 Soul/Agent 配置切换
+- 记忆按项目与会话隔离
+- 记忆支持标签与检索
+
+## 其他内置文档建议
+- `config/CAPABILITIES.md`
+  - 能力清单与边界
+- `config/COMMANDS.md`
+  - CLI 指令说明与示例
+- `config/TOOLS.md`
+  - 工具清单与调用约定
+- `config/SAFETY.md`
+  - 安全边界与风险控制
+- `config/LIMITS.md`
+  - 限制与降级策略
+- `config/WORKFLOW.md`
+  - 任务分解与执行流程
+- `config/STYLE.md`
+  - 输出格式与语言风格
+- `config/PROJECT.md`
+  - 项目特定目标与约束
+  - 参考 claude/gemini cli/codex 的配置颗粒度设计

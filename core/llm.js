@@ -38,7 +38,9 @@ class LLMAdapter {
   constructor(config) {
     this.provider = config.provider || 'glm';
     this.apiKey = config.apiKey || process.env.GLM_API_KEY;
-    this.apiUrl = config.apiUrl || process.env.GLM_API_URL || 'https://open.bigmodel.cn/api/anthropic';
+    const rawApiUrl = config.apiUrl || process.env.GLM_API_URL || 'https://open.bigmodel.cn/api/paas/v4/chat/completions';
+    const trimmedApiUrl = String(rawApiUrl || '').trim();
+    this.apiUrl = this.provider === 'glm' ? this._normalizeGlmApiUrl(trimmedApiUrl) : trimmedApiUrl;
     this.format = config.format || process.env.LLM_FORMAT || null;
     const modelConfig = config.model || process.env.GLM_MODEL;
     const parsedModels = Array.isArray(modelConfig)
@@ -557,6 +559,22 @@ class LLMAdapter {
     }
   }
 
+  _normalizeGlmApiUrl(value) {
+    if (!value) {
+      return value;
+    }
+    if (value.endsWith('/chat/completions')) {
+      return value;
+    }
+    if (value.endsWith('/api/paas/v4') || value.endsWith('/api/paas/v4/')) {
+      return value.replace(/\/$/, '') + '/chat/completions';
+    }
+    if (value.endsWith('/api/coding/paas/v4') || value.endsWith('/api/coding/paas/v4/')) {
+      return value.replace(/\/$/, '') + '/chat/completions';
+    }
+    return value;
+  }
+
   _readStream(stream) {
     return new Promise((resolve) => {
       let raw = '';
@@ -591,7 +609,7 @@ class LLMAdapter {
 export function createGLMAdapter(config) {
   return new LLMAdapter({
     provider: 'glm',
-    apiUrl: 'https://open.bigmodel.cn/api/anthropic',
+    apiUrl: 'https://open.bigmodel.cn/api/paas/v4/chat/completions',
     model: ['glm-5', 'glm-4.7'],
     ...config
   });

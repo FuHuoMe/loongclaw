@@ -89,13 +89,22 @@ class Agent {
     await this.memory.init();
     
     // 加载自定义系统提示（如果存在）
-    try {
-      const customPromptPath = './config/SOUL.md';
-      const customPrompt = await readFile(customPromptPath, 'utf-8');
-      this.systemPrompt = customPrompt;
-    } catch (e) {
-      // 使用默认提示
+    const promptParts = [this._buildSystemPrompt()];
+    const customPromptPaths = [
+      './config/SOUL.md',
+      './config/SYSTEM_PROMPTS..md'
+    ];
+    for (const customPromptPath of customPromptPaths) {
+      try {
+        const customPrompt = await readFile(customPromptPath, 'utf-8');
+        if (customPrompt && customPrompt.trim()) {
+          promptParts.push(customPrompt.trim());
+        }
+      } catch (e) {
+        continue;
+      }
     }
+    this.systemPrompt = promptParts.join('\n\n');
   }
 
   /**
@@ -108,6 +117,19 @@ class Agent {
     try {
       // 获取或创建会话
       const session = this._getOrCreateSession(sessionId);
+
+      const internalResponse = this._handleInternalCommand(message);
+      if (internalResponse) {
+        session.messages.push({
+          role: 'user',
+          content: message
+        });
+        session.messages.push({
+          role: 'assistant',
+          content: internalResponse
+        });
+        return internalResponse;
+      }
       
       // 添加用户消息到历史
       session.messages.push({
@@ -216,6 +238,22 @@ class Agent {
    */
   async processStream(message, onChunk, sessionId = 'default') {
     const session = this._getOrCreateSession(sessionId);
+
+    const internalResponse = this._handleInternalCommand(message);
+    if (internalResponse) {
+      session.messages.push({
+        role: 'user',
+        content: message
+      });
+      session.messages.push({
+        role: 'assistant',
+        content: internalResponse
+      });
+      if (internalResponse) {
+        onChunk(internalResponse);
+      }
+      return internalResponse;
+    }
     
     session.messages.push({
       role: 'user',
@@ -325,6 +363,44 @@ class Agent {
     } else {
       this.sessions.delete(sessionId);
     }
+  }
+
+  _handleInternalCommand(message) {
+    if (!message || typeof message !== 'string') {
+      return null;
+    }
+    const trimmed = message.trim();
+    if (!trimmed.startsWith('/')) {
+      return null;
+    }
+    const parts = trimmed.slice(1).trim().split(/\s+/).filter(Boolean);
+    const command = (parts[0] || '').toLowerCase();
+    if (!command || (command !== 'model' && command !== 'models')) {
+      return null;
+    }
+    const provider = this.config.llm?.provider || 'deepseek';
+    const currentModel = this.llm?.model || '';
+    const models = Array.isArray(this.llm?.models)
+      ? this.llm.models
+      : (currentModel ? [currentModel] : []);
+    const language = (this.config.system?.language || 'zh').toLowerCase();
+    if (command === 'models') {
+      const lines = [
+        language === 'en' ? `Current provider: ${provider}` : `当前提供商: ${provider}`,
+        language === 'en' ? `Current model: ${currentModel || '-'}` : `当前模型: ${currentModel || '-'}`,
+        language === 'en' ? 'Available models:' : '可用模型:',
+        ...models.map(item => `- ${item}`)
+      ];
+      return lines.join('\n');
+    }
+    const lines = [
+      language === 'en' ? `Current provider: ${provider}` : `当前提供商: ${provider}`,
+      language === 'en' ? `Current model: ${currentModel || '-'}` : `当前模型: ${currentModel || '-'}`,
+      language === 'en'
+        ? 'This is an internal command. Use /model or /models in CLI'
+        : '这是内部指令，请在 CLI 中使用 /model 或 /models'
+    ];
+    return lines.join('\n');
   }
 
   _parseToolArguments(rawArgs) {
@@ -440,6 +516,47 @@ class Agent {
       minute: '2-digit'
     });
     
+    const language = (this.config.system.language || 'zh').toLowerCase();
+    const workspaceRoot = `${process.cwd()}/workspace`;
+    if (language === 'en') {
+      const time = new Date().toLocaleString('en-US', {
+        timeZone: this.config.system.timezone,
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+      return `You are ${this.config.system.name}, ${this.config.system.role}.
+
+${this.config.system.vibe}
+
+**Current time**: ${time} (${this.config.system.timezone})
+
+**Core principles**:
+- Help sincerely without performative politeness
+- Keep your own judgment and opinions
+- Try to solve first, then ask
+- Win trust through action, not empty promises
+
+**Available tools**:
+${this.tools.getAll().map(t => `- ${t.name}: ${t.description}`).join('\n')}
+
+**Memory system**:
+- Short-term memory: current session context
+- Long-term memory: persisted important information
+
+**Workspace**:
+- Root: ${workspaceRoot}
+- All file paths are relative to the workspace root
+- When reporting absolute paths, always include the workspace root
+
+**Notes**:
+- Protect privacy, never leak sensitive info
+- Be cautious before external actions
+- Say you don't know if you don't know
+`;
+    }
     return `你是 ${this.config.system.name}，${this.config.system.role}。
 
 ${this.config.system.vibe}
@@ -458,6 +575,11 @@ ${this.tools.getAll().map(t => `- ${t.name}: ${t.description}`).join('\n')}
 **记忆系统**:
 - 短期记忆: 当前会话上下文
 - 长期记忆: 持久化的重要信息
+
+**工作区**:
+- 根目录: ${workspaceRoot}
+- 所有文件路径都以工作区为根
+- 输出绝对路径时必须包含工作区根目录
 
 **注意事项**:
 - 保护隐私，不泄露敏感信息
