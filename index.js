@@ -21,12 +21,18 @@ async function main() {
     // 创建 Agent
     const agent = await createAgent({
       llm: {
-        provider: 'glm',
-        apiKey: process.env.GLM_API_KEY,
-        apiUrl: process.env.GLM_API_URL || 'https://open.bigmodel.cn/api/anthropic',
-        model: process.env.GLM_MODEL
-          ? process.env.GLM_MODEL.split(',').map(item => item.trim()).filter(Boolean)
-          : ['glm-5', 'glm-4.7']
+        provider: process.env.LLM_PROVIDER || 'deepseek',
+        apiKey: process.env.LLM_PROVIDER === 'glm'
+          ? process.env.GLM_API_KEY
+          : (process.env.DEEPSEEK_API_KEY || process.env.GLM_API_KEY),
+        apiUrl: process.env.LLM_PROVIDER === 'glm'
+          ? (process.env.GLM_API_URL || 'https://open.bigmodel.cn/api/anthropic')
+          : (process.env.DEEPSEEK_API_URL || 'https://api.deepseek.com/v1/chat/completions'),
+        model: process.env.LLM_PROVIDER === 'glm'
+          ? (process.env.GLM_MODEL
+            ? process.env.GLM_MODEL.split(',').map(item => item.trim()).filter(Boolean)
+            : ['glm-5', 'glm-4.7'])
+          : (process.env.DEEPSEEK_MODEL || 'deepseek-chat')
       },
       memory: {
         memoryDir: process.env.MEMORY_DIR || './memory'

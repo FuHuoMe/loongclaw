@@ -5,7 +5,7 @@
  */
 
 import { config } from 'dotenv';
-import { createGLMAdapter } from './llm.js';
+import { createGLMAdapter, createDeepSeekAdapter, createKimiAdapter } from './llm.js';
 import { createToolManager } from './tools.js';
 import { createMemorySystem, MemoryType, MemoryImportance } from './memory.js';
 import { readFile } from 'fs/promises';
@@ -18,7 +18,7 @@ config();
 class AgentConfig {
   constructor(config = {}) {
     this.llm = {
-      provider: config.llm?.provider || 'glm',
+      provider: config.llm?.provider || 'deepseek',
       apiKey: config.llm?.apiKey || process.env.GLM_API_KEY,
       apiUrl: config.llm?.apiUrl,
       model: config.llm?.model
@@ -50,11 +50,25 @@ class Agent {
     this.config = config instanceof AgentConfig ? config : new AgentConfig(config);
     
     // 初始化组件
-    this.llm = createGLMAdapter({
-      apiKey: this.config.llm.apiKey,
-      apiUrl: this.config.llm.apiUrl,
-      model: this.config.llm.model
-    });
+    if (this.config.llm.provider === 'deepseek') {
+      this.llm = createDeepSeekAdapter({
+        apiKey: this.config.llm.apiKey,
+        apiUrl: this.config.llm.apiUrl,
+        model: this.config.llm.model
+      });
+    } else if (this.config.llm.provider === 'kimi') {
+      this.llm = createKimiAdapter({
+        apiKey: this.config.llm.apiKey,
+        apiUrl: this.config.llm.apiUrl,
+        model: this.config.llm.model
+      });
+    } else {
+      this.llm = createGLMAdapter({
+        apiKey: this.config.llm.apiKey,
+        apiUrl: this.config.llm.apiUrl,
+        model: this.config.llm.model
+      });
+    }
     
     this.tools = createToolManager();
     this.memory = createMemorySystem(this.config.memory);
