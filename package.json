@@ -4,6 +4,10 @@
   "description": "精简版 OpenClaw 系统 - 基于 pi-mono 的学习导向 AI Agent",
   "main": "index.js",
   "type": "module",
+  "bin": {
+    "loongclaw": "./cli.js",
+    "LoongClaw": "./cli.js"
+  },
   "scripts": {
     "start": "node index.js",
     "dev": "node --watch index.js",
