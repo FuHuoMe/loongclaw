@@ -11,6 +11,101 @@ import { exec } from 'child_process';
 import { promisify } from 'util';
 
 const execAsync = promisify(exec);
+const approvalFilePath = './sessions/command-approvals.json';
+const approvalWindowMs = 7 * 24 * 60 * 60 * 1000;
+const greenCommands = new Set(['ls', 'pwd', 'echo', 'cat', 'head', 'tail', 'grep', 'wc', 'rg', 'which', 'whoami', 'uname', 'date', 'uptime', 'df', 'du']);
+const blackCommands = new Set(['rm', 'mv', 'dd', 'truncate', 'mkfs', 'shutdown', 'reboot', 'kill', 'pkill', 'killall', 'chmod', 'chown']);
+const grayCommandNames = new Set(['npm', 'pnpm', 'yarn', 'bun', 'npx', 'node', 'python', 'python3', 'pip', 'pip3', 'go', 'cargo', 'rustc', 'javac', 'mvn', 'gradle', 'make', 'cmake', 'docker', 'docker-compose', 'kubectl', 'git', 'deno']);
+
+function normalizeCommand(command) {
+  return command.trim().replace(/\s+/g, ' ');
+}
+
+function getCommandParts(command) {
+  const parts = command.split(/\s+/);
+  return {
+    parts,
+    commandName: parts[0] || '',
+    subCommand: parts[1] || '',
+    subSubCommand: parts[2] || ''
+  };
+}
+
+function getApprovalSignature(command) {
+  return `${process.cwd()}::${command}`;
+}
+
+function classifyCommand(command) {
+  const normalized = normalizeCommand(command);
+  const { commandName, subCommand, subSubCommand } = getCommandParts(normalized);
+  if (!commandName) {
+    return 'gray';
+  }
+  if (blackCommands.has(commandName)) {
+    return 'black';
+  }
+  if (greenCommands.has(commandName)) {
+    return 'green';
+  }
+  if (commandName === 'git') {
+    if (['status', 'diff', 'log', 'show'].includes(subCommand)) {
+      return 'white';
+    }
+    if (['checkout', 'switch', 'pull', 'fetch', 'merge', 'rebase', 'reset', 'push', 'commit', 'tag', 'branch', 'stash', 'cherry-pick', 'revert', 'clean', 'init', 'clone'].includes(subCommand)) {
+      return 'gray';
+    }
+  }
+  if (['npm', 'pnpm', 'yarn', 'bun'].includes(commandName)) {
+    if (subCommand === 'run' && ['lint', 'test', 'typecheck', 'format', 'fmt', 'check'].includes(subSubCommand)) {
+      return 'white';
+    }
+    if (['test', 'lint'].includes(subCommand)) {
+      return 'white';
+    }
+    if (['install', 'ci', 'i', 'add', 'remove', 'uninstall', 'update', 'publish', 'run', 'exec'].includes(subCommand)) {
+      return 'gray';
+    }
+    return 'gray';
+  }
+  if (['pip', 'pip3'].includes(commandName)) {
+    return 'gray';
+  }
+  if (grayCommandNames.has(commandName)) {
+    return 'gray';
+  }
+  return 'white';
+}
+
+async function loadApprovals() {
+  if (!existsSync(approvalFilePath)) {
+    return {};
+  }
+  const raw = await readFile(approvalFilePath, 'utf-8');
+  let data = {};
+  try {
+    data = JSON.parse(raw);
+  } catch (error) {
+    data = {};
+  }
+  const now = Date.now();
+  const filtered = {};
+  for (const [key, value] of Object.entries(data || {})) {
+    if (value && typeof value.expiresAt === 'number' && value.expiresAt > now) {
+      filtered[key] = value;
+    }
+  }
+  if (Object.keys(filtered).length !== Object.keys(data || {}).length) {
+    await saveApprovals(filtered);
+  }
+  return filtered;
+}
+
+async function saveApprovals(data) {
+  if (!existsSync('./sessions')) {
+    await mkdir('./sessions', { recursive: true });
+  }
+  await writeFile(approvalFilePath, JSON.stringify(data, null, 2), 'utf-8');
+}
 
 /**
  * 工具基类
@@ -323,13 +418,17 @@ export const builtinTools = {
    */
   execShell: new Tool({
     name: 'exec_shell',
-    description: '执行 Shell 命令（仅限白名单命令）',
+    description: '执行 Shell 命令（绿/白自动允许，灰需确认，黑拒绝）',
     parameters: {
       type: 'object',
       properties: {
         command: {
           type: 'string',
           description: '要执行的命令'
+        },
+        approval: {
+          type: 'string',
+          description: '灰名单命令确认：once 或 remember_7d'
         },
         timeout: {
           type: 'number',
@@ -348,18 +447,35 @@ export const builtinTools = {
       if (unsafePattern.test(command)) {
         throw new Error('命令包含非法字符');
       }
-      const parts = command.split(/\s+/);
+      const normalizedCommand = normalizeCommand(command);
+      const parts = normalizedCommand.split(/\s+/);
       const tokenPattern = /^[a-zA-Z0-9._/-]+$/;
       if (!parts.every(part => tokenPattern.test(part))) {
         throw new Error('命令包含非法参数');
       }
-      const whitelist = ['ls', 'pwd', 'echo', 'cat', 'head', 'tail', 'grep', 'wc'];
       const commandName = parts[0];
-      if (!whitelist.includes(commandName)) {
-        throw new Error(`命令不在白名单中: ${commandName}`);
+      const policy = classifyCommand(normalizedCommand);
+      if (policy === 'black') {
+        throw new Error('黑名单指令，请自己操作。');
+      }
+      if (policy === 'gray') {
+        const approval = (args.approval || '').toLowerCase();
+        const approvals = await loadApprovals();
+        const signature = getApprovalSignature(normalizedCommand);
+        const cached = approvals[signature];
+        const now = Date.now();
+        const cachedValid = cached && typeof cached.expiresAt === 'number' && cached.expiresAt > now;
+        if (!cachedValid) {
+          if (approval === 'remember_7d' || approval === 'remember-7d') {
+            approvals[signature] = { expiresAt: now + approvalWindowMs };
+            await saveApprovals(approvals);
+          } else if (approval !== 'once') {
+            throw new Error('灰名单指令，需要确认：approval=once 或 approval=remember_7d');
+          }
+        }
       }
       
-      const { stdout, stderr } = await execAsync(command, {
+      const { stdout, stderr } = await execAsync(normalizedCommand, {
         timeout: args.timeout || 30000
       });
       
